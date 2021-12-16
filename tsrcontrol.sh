@@ -71,7 +71,6 @@ start_streams () {
        if [[ $stream_recorder == Quit ]]; then break; fi
     fi
     done
-
 }
 
 stop_streams () {
@@ -89,7 +88,6 @@ stop_streams () {
        if [[ $stream_recorder == Quit ]]; then break; fi
     fi
     done
-
 }
 
 status_streams () {
