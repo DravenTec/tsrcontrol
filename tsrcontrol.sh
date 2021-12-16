@@ -15,51 +15,81 @@ if [ -f ~/.tsrconf ]; then
         source ~/.tsrconf
 else
         read  -p "Please specify the non-root user to run tsr.py: " input_username
-	cat <<-EOFC >> ~/.tsrconf
-	user="$input_username"
-	streams=""
-	EOFC
-	source ~/.tsrconf
+        cat <<-EOFC >> ~/.tsrconf
+        user="$input_username"
+        streams=""
+        EOFC
+        source ~/.tsrconf
 fi
 
 enable_streams () {
     clear
     echo ""
-    echo "Enable Recorder: $sys_enable $streams"
-    $sys_enable $streams
-    echo ""
-    echo "Press any key to continue"
-    read;
+    echo "Enable Recorder"
+    S3="Please enter your choice"
+    select stream_recorder in $streams All Quit
+    do
+    if [[ $stream_recorder != All ]] && [[ $stream_recorder != Quit ]];
+    then
+        $sys_enable $stream_recorder
+    else
+       if [[ $stream_recorder == All ]]; then $sys_enable $streams; fi
+       if [[ $stream_recorder == Quit ]]; then break; fi
+    fi
+    done
 }
 
 disable_streams () {
     clear
     echo ""
-    echo "Disable Recorder: $sys_disable $streams"
-    $sys_disable $streams
-    echo ""
-    echo "Press any key to continue"
-    read;
+    echo "Disable Recorder"
+    S3="Please enter your choice"
+    select stream_recorder in $streams All Quit
+    do
+    if [[ $stream_recorder != All ]] && [[ $stream_recorder != Quit ]];
+    then
+        $sys_disable $stream_recorder
+    else
+       if [[ $stream_recorder == All ]]; then $sys_disable $streams; fi
+       if [[ $stream_recorder == Quit ]]; then break; fi
+    fi
+    done
 }
 
 start_streams () {
     clear
     echo ""
-    echo "Start Recorder: $sys_start $streams"
-    $sys_start $streams
-    echo ""
-    echo "Press any key to continue"
-    read;
+    echo "Start Recorder:"
+    S3="Please enter your choice"
+    select stream_recorder in $streams All Quit
+    do
+    if [[ $stream_recorder != All ]] && [[ $stream_recorder != Quit ]];
+    then
+        $sys_start $stream_recorder
+    else
+       if [[ $stream_recorder == All ]]; then $sys_start $streams; fi
+       if [[ $stream_recorder == Quit ]]; then break; fi
+    fi
+    done
+
 }
 
 stop_streams () {
     clear
     echo ""
     echo "Stop Recorder: $sys_stop $streams"
-    $sys_stop $streams
-    echo ""
-    echo "Press any key to continue"
-    read;
+    S3="Please enter your choice"
+    select stream_recorder in $streams All Quit
+    do
+    if [[ $stream_recorder != All ]] && [[ $stream_recorder != Quit ]];
+    then
+        $sys_stop $stream_recorder
+    else
+       if [[ $stream_recorder == All ]]; then $sys_stop $streams; fi
+       if [[ $stream_recorder == Quit ]]; then break; fi
+    fi
+    done
+
 }
 
 status_streams () {
@@ -87,26 +117,26 @@ create_service () {
         echo ""
         read  -p "Please enter streamers name in lowercase: " streamer
         echo "tsr.py must be located under /home/$user/"
-	cat <<-EOF >> /etc/systemd/system/$streamer.service
-	[Unit]
-	Description=$streamer Recorder
-	After=syslog.target
-	
-	[Service]
-	Type=simple
-	User=$user
-	Group=$user
-	WorkingDirectory=/home/$user
-	ExecStart=/usr/bin/python3 tsr.py -u $streamer
-	SyslogIdentifier=$streamer
-	StandardOutput=syslog
-	StandardError=syslog
-	Restart=always
-	RestartSec=3
-	
-	[Install]
-	WantedBy=multi-user.target
-	EOF
+        cat <<-EOF >> /etc/systemd/system/$streamer.service
+        [Unit]
+        Description=$streamer Recorder
+        After=syslog.target
+
+        [Service]
+        Type=simple
+        User=$user
+        Group=$user
+        WorkingDirectory=/home/$user
+        ExecStart=/usr/bin/python3 tsr.py -u $streamer
+        SyslogIdentifier=$streamer
+        StandardOutput=syslog
+        StandardError=syslog
+        Restart=always
+        RestartSec=3
+
+        [Install]
+        WantedBy=multi-user.target
+        EOF
 
         sed -i "s/streams=\"$streams\"/streams=\"$streams $streamer\"/g" ~/.tsrconf
         echo "Enabling Streamrecorder for $streamer"
