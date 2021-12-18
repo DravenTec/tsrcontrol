@@ -1,6 +1,8 @@
 #!/bin/bash
 #
-# Twitch Stream Recorder - Automatic Run
+# Twitch Stream Recorder - Control Script
+#
+# Create, Enable, Disable, Start, Stop Recorder
 #
 
 # systemctl enable/disable/start/stop/status
@@ -12,7 +14,6 @@ sys_stop="systemctl stop"
 
 # Global Settings
 PS3="Please enter your choice: "
-
 
 # Known Stream Recorder
 if [ -f ~/.tsrconf ]; then
@@ -39,16 +40,6 @@ create_menu () {
           *) echo "$3 Recorder $stream_recorder"; $1 $2 $stream_recorder;;
       esac
     done
-}
-
-status_streams () {
-    clear
-    echo ""
-    echo "Status Recorder: $sys_status $streams"
-    $sys_status $streams
-    echo ""
-    echo "Press any key to continue"
-    read;
 }
 
 show_recorder () {
@@ -109,7 +100,7 @@ while true; do
             "Disable") create_menu $sys_disable Disable; break ;;
             "Start") create_menu $sys_start Start; break ;;
             "Stop") create_menu $sys_stop Stop; break ;;
-            "Status") status_streams; break ;;
+            "Status") create_menu $sys_status Status; break ;;
             "Create Service") create_service; break ;;
             "Active Records") show_recorder; break ;;
             "Quit") clear; break 2 ;;
