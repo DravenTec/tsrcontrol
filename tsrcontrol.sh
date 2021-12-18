@@ -1,6 +1,8 @@
 #!/bin/bash
 #
-# Twitch Stream Recorder - Automatic Run
+# Twitch Stream Recorder - Control Script
+#
+# Create, Enable, Disable, Start, Stop Recorder
 #
 
 # systemctl enable/disable/start/stop/status
@@ -12,7 +14,6 @@ sys_stop="systemctl stop"
 
 # Global Settings
 PS3="Please enter your choice: "
-
 
 # Known Stream Recorder
 if [ -f ~/.tsrconf ]; then
@@ -27,31 +28,25 @@ else
 fi
 
 create_menu () {
+    clear
+    echo "" 
+    echo "$3 recorder"
+    echo ""
     select stream_recorder in $streams All Quit
     do
       case $stream_recorder in
-          All) echo "$3 all known recorders"; $1 $2 $streams;;
+          All) echo "$3 all known recorder"; $1 $2 $streams;;
           Quit) break ;;
           "") echo "Invalid input" ;;
-          *) echo "$3 Recorder $stream_recorder"; $1 $2 $stream_recorder;;
+          *) echo "$3 recorder $stream_recorder"; $1 $2 $stream_recorder;;
       esac
     done
-}
-
-status_streams () {
-    clear
-    echo ""
-    echo "Status Recorder: $sys_status $streams"
-    $sys_status $streams
-    echo ""
-    echo "Press any key to continue"
-    read;
 }
 
 show_recorder () {
     clear
     echo ""
-    echo "Active recorders:"
+    echo "Active recorder:"
     ps ax | grep tsr.py | head -n -1
     echo ""
     echo "Press any key to continue"
@@ -63,6 +58,7 @@ create_service () {
         echo ""
         read  -p "Please enter streamers name in lowercase: " streamer
         echo "tsr.py must be located under /home/$user/"
+	echo ""
 	cat <<-EOF >> /etc/systemd/system/$streamer.service
 	[Unit]
 	Description=$streamer Recorder
@@ -98,17 +94,17 @@ while true; do
     clear
     options=("Enable" "Disable" "Start" "Stop" "Status" "Create Service" "Active Records" "Quit")
     echo ""
-    echo "Known Recorder: $streams"
+    echo "Known recorder: $streams"
     echo ""
     select opt in "${options[@]}"; do
         case $opt in
-            "Enable") clear; echo ""; echo "Enable Recorder"; create_menu $sys_enable Enable; break ;;
-            "Disable") clear; echo ""; echo "Disable Recorder"; create_menu $sys_disable Disable; break ;;
-            "Start") clear; echo ""; echo "Start Recorder"; create_menu $sys_start Start; break ;;
-            "Stop") clear; echo ""; echo "Stop Recorder"; create_menu $sys_stop Stop; break ;;
-            "Status") status_streams; break ;;
-            "Create Service") create_service; break ;;
-            "Active Records") show_recorder; break ;;
+            "Enable") create_menu $sys_enable Enable; break ;;
+            "Disable") create_menu $sys_disable Disable; break ;;
+            "Start") create_menu $sys_start Start; break ;;
+            "Stop") create_menu $sys_stop Stop; break ;;
+            "Status") create_menu $sys_status Status; break ;;
+            "Create service") create_service; break ;;
+            "Active recorder") show_recorder; break ;;
             "Quit") clear; break 2 ;;
             *) echo "Invalid input"
         esac
