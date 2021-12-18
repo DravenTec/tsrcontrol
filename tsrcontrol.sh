@@ -10,7 +10,11 @@ sys_start="systemctl start"
 sys_status="systemctl status"
 sys_stop="systemctl stop"
 
-# Active Stream Recorder
+# Global Settings
+PS3="Please enter your choice: "
+
+
+# Known Stream Recorder
 if [ -f ~/.tsrconf ]; then
         source ~/.tsrconf
 else
@@ -22,71 +26,15 @@ else
 	source ~/.tsrconf
 fi
 
-enable_streams () {
-    clear
-    echo ""
-    echo "Enable Recorder"
-    S3="Please enter your choice"
+create_menu () {
     select stream_recorder in $streams All Quit
     do
-    if [[ $stream_recorder != All ]] && [[ $stream_recorder != Quit ]];
-    then
-        $sys_enable $stream_recorder
-    else
-       if [[ $stream_recorder == All ]]; then $sys_enable $streams; fi
-       if [[ $stream_recorder == Quit ]]; then break; fi
-    fi
-    done
-}
-
-disable_streams () {
-    clear
-    echo ""
-    echo "Disable Recorder"
-    S3="Please enter your choice"
-    select stream_recorder in $streams All Quit
-    do
-    if [[ $stream_recorder != All ]] && [[ $stream_recorder != Quit ]]; 
-    then 
-	$sys_disable $stream_recorder
-    else
-       if [[ $stream_recorder == All ]]; then $sys_disable $streams; fi
-       if [[ $stream_recorder == Quit ]]; then break; fi
-    fi
-    done
-}
-
-start_streams () {
-    clear
-    echo ""
-    echo "Start Recorder:"
-    S3="Please enter your choice"
-    select stream_recorder in $streams All Quit
-    do
-    if [[ $stream_recorder != All ]] && [[ $stream_recorder != Quit ]];
-    then
-        $sys_start $stream_recorder
-    else
-       if [[ $stream_recorder == All ]]; then $sys_start $streams; fi
-       if [[ $stream_recorder == Quit ]]; then break; fi
-    fi
-    done
-}
-
-stop_streams () {
-    clear
-    echo ""
-    echo "Stop Recorder: $sys_stop $streams"
-    S3="Please enter your choice"
-    select stream_recorder in $streams All Quit
-    do
-    if [[ $stream_recorder != All ]] && [[ $stream_recorder != Quit ]];
-    then
-        $sys_stop $stream_recorder
-    else
-       if [[ $stream_recorder == All ]]; then $sys_stop $streams; fi
-       if [[ $stream_recorder == Quit ]]; then break; fi
-    fi
+      case $stream_recorder in
+          All) echo "$3 all known recorders"; $1 $2 $streams;;
+          Quit) break ;;
+          "") echo "Invalid input" ;;
+          *) echo "$3 Recorder $stream_recorder"; $1 $2 $stream_recorder;;
+      esac
     done
 }
 
@@ -150,16 +98,14 @@ while true; do
     clear
     options=("Enable" "Disable" "Start" "Stop" "Status" "Create Service" "Active Records" "Quit")
     echo ""
-    echo "Please enter your choice"
-    echo ""
-    echo "Active Records: $streams"
+    echo "Known Recorder: $streams"
     echo ""
     select opt in "${options[@]}"; do
         case $opt in
-            "Enable") enable_streams; break ;;
-            "Disable") disable_streams; break ;;
-            "Start") start_streams; break ;;
-            "Stop") stop_streams; break ;;
+            "Enable") clear; echo ""; echo "Enable Recorder"; create_menu $sys_enable Enable; break ;;
+            "Disable") clear; echo ""; echo "Disable Recorder"; create_menu $sys_disable Disable; break ;;
+            "Start") clear; echo ""; echo "Start Recorder"; create_menu $sys_start Start; break ;;
+            "Stop") clear; echo ""; echo "Stop Recorder"; create_menu $sys_stop Stop; break ;;
             "Status") status_streams; break ;;
             "Create Service") create_service; break ;;
             "Active Records") show_recorder; break ;;
@@ -168,4 +114,3 @@ while true; do
         esac
     done
 done
-
