@@ -27,6 +27,9 @@ else
 fi
 
 create_menu () {
+    clear
+    echo "" 
+    echo "$3 Recorder"
     select stream_recorder in $streams All Quit
     do
       case $stream_recorder in
@@ -102,10 +105,10 @@ while true; do
     echo ""
     select opt in "${options[@]}"; do
         case $opt in
-            "Enable") clear; echo ""; echo "Enable Recorder"; create_menu $sys_enable Enable; break ;;
-            "Disable") clear; echo ""; echo "Disable Recorder"; create_menu $sys_disable Disable; break ;;
-            "Start") clear; echo ""; echo "Start Recorder"; create_menu $sys_start Start; break ;;
-            "Stop") clear; echo ""; echo "Stop Recorder"; create_menu $sys_stop Stop; break ;;
+            "Enable") create_menu $sys_enable Enable; break ;;
+            "Disable") create_menu $sys_disable Disable; break ;;
+            "Start") create_menu $sys_start Start; break ;;
+            "Stop") create_menu $sys_stop Stop; break ;;
             "Status") status_streams; break ;;
             "Create Service") create_service; break ;;
             "Active Records") show_recorder; break ;;
