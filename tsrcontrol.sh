@@ -30,14 +30,15 @@ fi
 create_menu () {
     clear
     echo "" 
-    echo "$3 Recorder"
+    echo "$3 recorder"
+    echo ""
     select stream_recorder in $streams All Quit
     do
       case $stream_recorder in
-          All) echo "$3 all known recorders"; $1 $2 $streams;;
+          All) echo "$3 all known recorder"; $1 $2 $streams;;
           Quit) break ;;
           "") echo "Invalid input" ;;
-          *) echo "$3 Recorder $stream_recorder"; $1 $2 $stream_recorder;;
+          *) echo "$3 recorder $stream_recorder"; $1 $2 $stream_recorder;;
       esac
     done
 }
@@ -45,7 +46,7 @@ create_menu () {
 show_recorder () {
     clear
     echo ""
-    echo "Active recorders:"
+    echo "Active recorder:"
     ps ax | grep tsr.py | head -n -1
     echo ""
     echo "Press any key to continue"
@@ -57,6 +58,7 @@ create_service () {
         echo ""
         read  -p "Please enter streamers name in lowercase: " streamer
         echo "tsr.py must be located under /home/$user/"
+	echo ""
 	cat <<-EOF >> /etc/systemd/system/$streamer.service
 	[Unit]
 	Description=$streamer Recorder
@@ -92,7 +94,7 @@ while true; do
     clear
     options=("Enable" "Disable" "Start" "Stop" "Status" "Create Service" "Active Records" "Quit")
     echo ""
-    echo "Known Recorder: $streams"
+    echo "Known recorder: $streams"
     echo ""
     select opt in "${options[@]}"; do
         case $opt in
@@ -101,8 +103,8 @@ while true; do
             "Start") create_menu $sys_start Start; break ;;
             "Stop") create_menu $sys_stop Stop; break ;;
             "Status") create_menu $sys_status Status; break ;;
-            "Create Service") create_service; break ;;
-            "Active Records") show_recorder; break ;;
+            "Create service") create_service; break ;;
+            "Active recorder") show_recorder; break ;;
             "Quit") clear; break 2 ;;
             *) echo "Invalid input"
         esac
