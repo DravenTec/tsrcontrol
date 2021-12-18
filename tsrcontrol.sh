@@ -92,7 +92,7 @@ create_service () {
 
 while true; do
     clear
-    options=("Enable" "Disable" "Start" "Stop" "Status" "Create Service" "Active Records" "Quit")
+    options=("Enable" "Disable" "Start" "Stop" "Status" "Create service" "Active recorder" "Quit")
     echo ""
     echo "Known recorder: $streams"
     echo ""
