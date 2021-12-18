@@ -10,7 +10,11 @@ sys_start="systemctl start"
 sys_status="systemctl status"
 sys_stop="systemctl stop"
 
-# Active Stream Recorder
+# Global Settings
+PS3="Please enter your choice: "
+
+
+# Known Stream Recorder
 if [ -f ~/.tsrconf ]; then
         source ~/.tsrconf
 else
@@ -22,44 +26,16 @@ else
 	source ~/.tsrconf
 fi
 
-enable_streams () {
-    clear
-    echo ""
-    echo "Enable Recorder: $sys_enable $streams"
-    $sys_enable $streams
-    echo ""
-    echo "Press any key to continue"
-    read;
-}
-
-disable_streams () {
-    clear
-    echo ""
-    echo "Disable Recorder: $sys_disable $streams"
-    $sys_disable $streams
-    echo ""
-    echo "Press any key to continue"
-    read;
-}
-
-start_streams () {
-    clear
-    echo ""
-    echo "Start Recorder: $sys_start $streams"
-    $sys_start $streams
-    echo ""
-    echo "Press any key to continue"
-    read;
-}
-
-stop_streams () {
-    clear
-    echo ""
-    echo "Stop Recorder: $sys_stop $streams"
-    $sys_stop $streams
-    echo ""
-    echo "Press any key to continue"
-    read;
+create_menu () {
+    select stream_recorder in $streams All Quit
+    do
+      case $stream_recorder in
+          All) echo "$3 all known recorders"; $1 $2 $streams;;
+          Quit) break ;;
+          "") echo "Invalid input" ;;
+          *) echo "$3 Recorder $stream_recorder"; $1 $2 $stream_recorder;;
+      esac
+    done
 }
 
 status_streams () {
@@ -122,16 +98,14 @@ while true; do
     clear
     options=("Enable" "Disable" "Start" "Stop" "Status" "Create Service" "Active Records" "Quit")
     echo ""
-    echo "Please enter your choice"
-    echo ""
-    echo "Active Records: $streams"
+    echo "Known Recorder: $streams"
     echo ""
     select opt in "${options[@]}"; do
         case $opt in
-            "Enable") enable_streams; break ;;
-            "Disable") disable_streams; break ;;
-            "Start") start_streams; break ;;
-            "Stop") stop_streams; break ;;
+            "Enable") clear; echo ""; echo "Enable Recorder"; create_menu $sys_enable Enable; break ;;
+            "Disable") clear; echo ""; echo "Disable Recorder"; create_menu $sys_disable Disable; break ;;
+            "Start") clear; echo ""; echo "Start Recorder"; create_menu $sys_start Start; break ;;
+            "Stop") clear; echo ""; echo "Stop Recorder"; create_menu $sys_stop Stop; break ;;
             "Status") status_streams; break ;;
             "Create Service") create_service; break ;;
             "Active Records") show_recorder; break ;;
