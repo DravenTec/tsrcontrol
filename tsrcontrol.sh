@@ -2,7 +2,7 @@
 #
 # Twitch Stream Recorder - Control Script
 #
-# Version: 0.9.0
+# Version: 1.0.0
 #
 # Developed by: DravenTec
 #
