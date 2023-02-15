@@ -2,6 +2,10 @@
 #
 # Twitch Stream Recorder - Control Script
 #
+# Version: 0.9.0
+#
+# Developed by: DravenTec
+#
 # Create, Enable, Disable, Start, Stop Recorder
 #
 
@@ -109,13 +113,13 @@ delete_service () {
                  $sys_disable $streamer
                  rm /etc/systemd/system/$streamer.service
 
-		 echo "declare -Ag streams" > ~/.tsrconf
+				 echo "declare -Ag streams" > ~/.tsrconf
                  echo "user=$user" >> ~/.tsrconf
 
                  unset streams["$streamer"]
                  new_streams=""
                  for stream in "${!streams[@]}"; do
-	            echo "streams[\"$stream\"]=\"${streams[$stream]}\"" >> ~/.tsrconf
+	                echo "streams[\"$stream\"]=\"${streams[$stream]}\"" >> ~/.tsrconf
                  done
                  echo "Streamrecorder for $streamer deleted."
                  break;;
@@ -139,10 +143,9 @@ while true; do
             "Status") create_menu $sys_status Status; break ;;
             "Create service") create_service; break ;;
             "Active recorder") show_recorder; break ;;
-	    "Delete recorder") delete_service; break ;;
+			"Delete recorder") delete_service; break ;;
             "Quit") clear; break 2 ;;
             *) echo "Invalid input"
         esac
     done
 done
-
