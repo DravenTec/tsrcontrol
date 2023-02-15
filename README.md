@@ -1,10 +1,13 @@
+# tsrcontrol
+Control Script for Twitch-Stream-Recorder (tsr.py)
+
+
 WARNING: This script is still under development and may contain errors and incompleteness. 
 Use it at your own risk and we assume no liability for any damage or loss of data that may 
 result from the use of the script. Please use the script only if you agree with the risks and 
 limitations. We welcome feedback and bug reports to further improve the script.
 
-# tsrcontrol
-Control Script for Twitch-Stream-Recorder (tsr.py)
+
 
 This script is a Bash script that is used to control a Twitch stream recorder. 
 It has several functions, such as creating, enabling, disabling, starting, stopping, 
