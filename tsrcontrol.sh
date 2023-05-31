@@ -2,12 +2,11 @@
 #
 # Twitch Stream Recorder - Control Script
 #
-# Version: 1.0.0
+# Version: 01.06.2023 (0025)
 #
 # Developed by: DravenTec
 #
 # Create, Enable, Disable, Start, Stop Recorder
-#
 
 # systemctl enable/disable/start/stop/status
 sys_enable="systemctl enable"
@@ -23,28 +22,45 @@ PS3="Please enter your choice: "
 if [ -f ~/.tsrconf ]; then
         source ~/.tsrconf
 else
-        read -rp "Please specify the non-root user to run tsr.py: " input_username
-        declare -Ag streams
+        read  -p "Please specify the non-root user to run tsr.py: " input_username
+        cat <<-EOFC >> ~/.tsrconf
         user="$input_username"
-        echo "declare -Ag streams" > ~/.tsrconf
-        echo "user=$input_username" >> ~/.tsrconf
+        streams=""
+EOFC
+        source ~/.tsrconf
 fi
 
-
 create_menu () {
-    clear
-    echo ""
-    echo "$3 recorder"
-    echo ""
-    select stream_recorder in "${!streams[@]}" "All" "Quit"
-    do
-      case $stream_recorder in
-          "All") echo "$3 all known recorder"; $1 $2 "${streams[@]}";;
-          "Quit") break ;;
-          "") echo "Invalid input" ;;
-          *) echo "$3 recorder $stream_recorder"; $1 $2 "$stream_recorder";;
-      esac
+    local selected_recorder
+    while true; do
+        clear
+        echo ""
+        echo "$3 recorder"
+        echo ""
+        select stream_recorder in $streams All Quit
+        do
+            case $stream_recorder in
+                All) echo "$3 all known recorder"; selected_recorder="all"; break ;;
+                Quit) selected_recorder="quit"; break ;;
+                "") echo "Invalid input" ;;
+                *) echo "$3 recorder $stream_recorder"; selected_recorder=$stream_recorder; break ;;
+            esac
+        done
+
+        # Überprüfen, ob das Menü erneut angezeigt werden soll
+        if [[ $selected_recorder != "quit" ]]; then
+            if [[ $selected_recorder == "all" ]]; then
+                $1 $2 $streams
+            else
+                $1 $2 $selected_recorder
+            fi
+
+            read -n 1 -s -r -p "Press any key to continue"
+        else
+            break
+        fi
     done
+
 }
 
 show_recorder () {
@@ -53,86 +69,94 @@ show_recorder () {
     echo "Active recorder:"
     ps ax | grep tsr.py | head -n -1
     echo ""
-    echo "Press any key to continue"
-    read;
+    read -n 1 -s -r -p "Press any key to continue"
 }
 
 create_service () {
-        clear
-        echo ""
-        read  -p "Please enter streamers name in lowercase: " streamer
-        echo "tsr.py must be located under /home/$user/"
-        echo ""
-        cat <<-EOF >> /etc/systemd/system/$streamer.service
-[Unit]
-Description=$streamer Recorder
-After=syslog.target
+    clear
+    echo ""
+    read  -p "Please enter streamers name in lowercase: " streamer
+    if [[ -z $streamer ]]; then
+        echo "Invalid input. Streamer's name cannot be empty."
+        read -n 1 -s -r -p "Press any key to continue"
+        return
+    fi
+    echo "tsr.py must be located under /home/$user/"
+    echo ""
+    cat <<-EOF >> /etc/systemd/system/$streamer.service
+        [Unit]
+        Description=$streamer Recorder
+        After=syslog.target
 
-[Service]
-Type=simple
-User=$user
-Group=$user
-WorkingDirectory=/home/$user
-ExecStart=/usr/bin/python3 tsr.py -u $streamer
-SyslogIdentifier=$streamer
-StandardOutput=syslog
-StandardError=syslog
-Restart=always
-RestartSec=3
+        [Service]
+        Type=simple
+        User=$user
+        Group=$user
+        WorkingDirectory=/home/$user
+        ExecStart=/usr/bin/python3 tsr.py -u $streamer
+        SyslogIdentifier=$streamer
+        StandardOutput=syslog
+        StandardError=syslog
+        Restart=always
+        RestartSec=3
 
-[Install]
-WantedBy=multi-user.target
-			EOF
+        [Install]
+        WantedBy=multi-user.target
+EOF
 
-	streams["$streamer"]="1"
-
-	echo "declare -Ag streams" > ~/.tsrconf
-	echo "user=$user" >> ~/.tsrconf
-	for stream in "${!streams[@]}"; do
-	  echo "streams[\"$stream\"]=\"${streams[$stream]}\"" >> ~/.tsrconf
-	done
-
-	echo "Enabling Streamrecorder for $streamer"
-        $sys_enable $streamer
-        echo "Starting Streamrecorder for $streamer"
-        $sys_start $streamer
-        echo "Press any key to continue"
-        read;
+    sed -i "s/streams=\"$streams\"/streams=\"$streams $streamer\"/g" ~/.tsrconf
+    echo "Enabling Streamrecorder for $streamer"
+    $sys_enable $streamer
+    echo "Starting Streamrecorder for $streamer"
+    $sys_start $streamer
+    streams="$streams $streamer"
+    read -n 1 -s -r -p "Press any key to continue"
 }
 
-delete_service () {
+delete_menu () {
+    local selected_recorder
+    while true; do
         clear
         echo ""
-        select streamer in ${!streams[@]} Quit
-        do
-          case $streamer in
-              Quit) break ;;
+        echo "Delete recorder and service"
+        echo ""
+        select stream_recorder in $streams Quit
+          do
+           case $stream_recorder in
+              Quit) selected_recorder="quit"; break 2 ;;
               "") echo "Invalid input" ;;
-              *) echo "Deleting Streamrecorder for $streamer";
-                 $sys_stop $streamer
-                 $sys_disable $streamer
-                 rm /etc/systemd/system/$streamer.service
-
-				 echo "declare -Ag streams" > ~/.tsrconf
-                 echo "user=$user" >> ~/.tsrconf
-
-                 unset streams["$streamer"]
-                 new_streams=""
-                 for stream in "${!streams[@]}"; do
-	                echo "streams[\"$stream\"]=\"${streams[$stream]}\"" >> ~/.tsrconf
-                 done
-                 echo "Streamrecorder for $streamer deleted."
-                 break;;
-          esac
+              *) echo "Delete recorder $stream_recorder"; delete_recorder $stream_recorder; break ;;
+           esac
         done
+
+        if [[ $selected_recorder != "quit" ]]; then
+            read -n 1 -s -r -p "Press any key to continue"
+        else
+            break
+        fi
+    done
 }
 
+delete_recorder () {
+    echo ""
+    echo "Stop and disable recorder..."
+    $sys_stop $1
+    $sys_disable $1
+    echo "Remove service file ..."
+    rm /etc/systemd/system/$1.service
+    echo "Removing $1 from streamer list..."
+    streams=("${streams[@]/$1}")
+    updated_streams=$(IFS=" " ; echo "${streams[*]}" | sed 's/^ *//;s/ *$//')
+    updated_streams=$(echo "$updated_streams" | tr -s ' ' | sed 's/  / /g')
+    echo "Saving new streamer list ..."
+    sed -i "s/streams=\".*\"/streams=\"$updated_streams\"/g" ~/.tsrconf
+}
 
 while true; do
     clear
     options=("Enable" "Disable" "Start" "Stop" "Status" "Create service" "Active recorder" "Delete recorder" "Quit")
     echo ""
-    echo "Known recorder: ${!streams[@]}"
+    echo "Known recorder: $streams"
     echo ""
     select opt in "${options[@]}"; do
         case $opt in
@@ -143,7 +167,7 @@ while true; do
             "Status") create_menu $sys_status Status; break ;;
             "Create service") create_service; break ;;
             "Active recorder") show_recorder; break ;;
-			"Delete recorder") delete_service; break ;;
+                        "Delete recorder") delete_menu; break;;
             "Quit") clear; break 2 ;;
             *) echo "Invalid input"
         esac
