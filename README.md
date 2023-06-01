@@ -1,7 +1,7 @@
 # Twitch Stream Recorder - Control Script
 
 This script provides control functionalities for managing Twitch stream recording. 
-It allows you to create, enable, disable, start, stop, and view the status of stream recorders.
+It allows you to create, enable, disable, start, stop, restart and view the status of stream recorders.
 
 ## Prerequisites
 
