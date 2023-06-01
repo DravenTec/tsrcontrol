@@ -155,7 +155,7 @@ delete_recorder () {
 
 while true; do
     clear
-    options=("Enable" "Disable" "Start" "Stop" "Status" "Create service" "Active recorder" "Delete recorder" "Quit")
+    options=("Enable" "Disable" "Start" "Stop" "Restart" "Status" "Create service" "Active recorder" "Delete recorder" "Quit")
     echo ""
     echo "Known recorder: $streams"
     echo ""
