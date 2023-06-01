@@ -2,7 +2,7 @@
 #
 # Twitch Stream Recorder - Control Script
 #
-# Version: 01.06.2023 (0025)
+# Version: 01.06.2023-2125
 #
 # Developed by: DravenTec
 #
@@ -14,6 +14,7 @@ sys_disable="systemctl disable"
 sys_start="systemctl start"
 sys_status="systemctl status"
 sys_stop="systemctl stop"
+sys_restart="systemctl restart"
 
 # Global Settings
 PS3="Please enter your choice: "
@@ -164,6 +165,7 @@ while true; do
             "Disable") create_menu $sys_disable Disable; break ;;
             "Start") create_menu $sys_start Start; break ;;
             "Stop") create_menu $sys_stop Stop; break ;;
+            "Restart") create_menu $sys_restart Restart; break ;;
             "Status") create_menu $sys_status Status; break ;;
             "Create service") create_service; break ;;
             "Active recorder") show_recorder; break ;;
