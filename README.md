@@ -1,7 +1,8 @@
-# Twitch Stream Recorder - Control Script
 ![GitHub](https://img.shields.io/github/license/DravenTec/tsrcontrol)
 ![GitHub release (latest by date)](https://img.shields.io/github/v/release/DravenTec/tsrcontrol)
 ![GitHub code size in bytes](https://img.shields.io/github/languages/code-size/DravenTec/tsrcontrol)
+
+# Twitch Stream Recorder - Control Script
 
 This script provides control functionalities for managing Twitch stream recording. 
 It allows you to create, enable, disable, start, stop, restart and view the status of stream recorders.
