@@ -41,16 +41,10 @@ Follow the on-screen instructions and provide the required inputs to perform the
 The script uses a configuration file located at `~/.tsrconf` to store the non-root user and the list of known stream recorders. 
 If the configuration file doesn't exist, it will be created on the first run.
 
-## Contributing
-Contributions are welcome! If you encounter any issues or have suggestions for improvements, please open an issue or submit a pull request.
-
 ## License
 
 This script is licensed under the [MIT License](LICENSE).
 
-## Acknowledgments
-The Twitch Stream Recorder Control Script was inspired by the need for a convenient and easy-to-use tool to manage Twitch stream recorders. 
-It is built upon various technologies and open-source projects that make it possible.
 
 WARNING: This script is still under development and may contain errors and incompleteness. 
 Use it at your own risk and we assume no liability for any damage or loss of data that may 
