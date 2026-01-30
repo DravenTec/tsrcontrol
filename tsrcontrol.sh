@@ -2,7 +2,7 @@
 #
 # Twitch Stream Recorder - Control Script
 #
-# Version: 01.06.2023-2125
+# Version: 30.01.2026-2130
 #
 # Developed by: DravenTec
 #
@@ -23,13 +23,23 @@ PS3="Please enter your choice: "
 if [ -f ~/.tsrconf ]; then
         source ~/.tsrconf
 else
-        read  -p "Please specify the non-root user to run tsr.py: " input_username
-        cat <<-EOFC >> ~/.tsrconf
+        read -r -p "Please specify the non-root user to run tsr.py: " input_username
+        cat <<-EOFC > ~/.tsrconf
         user="$input_username"
         streams=""
 EOFC
         source ~/.tsrconf
 fi
+
+save_streams () {
+    local updated_streams
+    updated_streams="$(printf "%s " "${streams_array[@]}" | sed 's/ *$//')"
+    sed -i "s/streams=\".*\"/streams=\"$updated_streams\"/g" ~/.tsrconf
+    streams="$updated_streams"
+}
+
+streams="${streams:-}"
+read -r -a streams_array <<< "$streams"
 
 create_menu () {
     local selected_recorder
@@ -38,7 +48,7 @@ create_menu () {
         echo ""
         echo "$3 recorder"
         echo ""
-        select stream_recorder in $streams All Quit
+        select stream_recorder in "${streams_array[@]}" All Quit
         do
             case $stream_recorder in
                 All) echo "$3 all known recorder"; selected_recorder="all"; break ;;
@@ -51,9 +61,9 @@ create_menu () {
         # Überprüfen, ob das Menü erneut angezeigt werden soll
         if [[ $selected_recorder != "quit" ]]; then
             if [[ $selected_recorder == "all" ]]; then
-                $1 $2 $streams
+                $1 $2 "${streams_array[@]}"
             else
-                $1 $2 $selected_recorder
+                $1 $2 "$selected_recorder"
             fi
 
             read -n 1 -s -r -p "Press any key to continue"
@@ -68,7 +78,11 @@ show_recorder () {
     clear
     echo ""
     echo "Active recorder:"
-    ps ax | grep tsr.py | head -n -1
+    if command -v pgrep >/dev/null; then
+        pgrep -af tsr.py
+    else
+        ps ax | grep tsr.py | head -n -1
+    fi
     echo ""
     read -n 1 -s -r -p "Press any key to continue"
 }
@@ -76,15 +90,27 @@ show_recorder () {
 create_service () {
     clear
     echo ""
-    read  -p "Please enter streamers name in lowercase: " streamer
+    read -r -p "Please enter streamers name in lowercase: " streamer
     if [[ -z $streamer ]]; then
         echo "Invalid input. Streamer's name cannot be empty."
         read -n 1 -s -r -p "Press any key to continue"
         return
     fi
+    if [[ ! $streamer =~ ^[a-z0-9_]+$ ]]; then
+        echo "Invalid input. Streamer's name may only contain lowercase letters, numbers, and underscores."
+        read -n 1 -s -r -p "Press any key to continue"
+        return
+    fi
+    for existing_streamer in "${streams_array[@]}"; do
+        if [[ $existing_streamer == "$streamer" ]]; then
+            echo "Recorder for $streamer already exists."
+            read -n 1 -s -r -p "Press any key to continue"
+            return
+        fi
+    done
     echo "tsr.py must be located under /home/$user/"
     echo ""
-    cat <<-EOF >> /etc/systemd/system/$streamer.service
+    cat <<-EOF > /etc/systemd/system/$streamer.service
         [Unit]
         Description=$streamer Recorder
         After=syslog.target
@@ -105,12 +131,13 @@ create_service () {
         WantedBy=multi-user.target
 EOF
 
-    sed -i "s/streams=\"$streams\"/streams=\"$streams $streamer\"/g" ~/.tsrconf
+    streams_array+=("$streamer")
+    save_streams
+    systemctl daemon-reload
     echo "Enabling Streamrecorder for $streamer"
-    $sys_enable $streamer
+    $sys_enable "$streamer"
     echo "Starting Streamrecorder for $streamer"
-    $sys_start $streamer
-    streams="$streams $streamer"
+    $sys_start "$streamer"
     read -n 1 -s -r -p "Press any key to continue"
 }
 
@@ -121,7 +148,7 @@ delete_menu () {
         echo ""
         echo "Delete recorder and service"
         echo ""
-        select stream_recorder in $streams Quit
+        select stream_recorder in "${streams_array[@]}" Quit
           do
            case $stream_recorder in
               Quit) selected_recorder="quit"; break 2 ;;
@@ -141,23 +168,28 @@ delete_menu () {
 delete_recorder () {
     echo ""
     echo "Stop and disable recorder..."
-    $sys_stop $1
-    $sys_disable $1
+    $sys_stop "$1"
+    $sys_disable "$1"
     echo "Remove service file ..."
-    rm /etc/systemd/system/$1.service
+    rm /etc/systemd/system/"$1".service
+    systemctl daemon-reload
     echo "Removing $1 from streamer list..."
-    streams=("${streams[@]/$1}")
-    updated_streams=$(IFS=" " ; echo "${streams[*]}" | sed 's/^ *//;s/ *$//')
-    updated_streams=$(echo "$updated_streams" | tr -s ' ' | sed 's/  / /g')
+    updated_streams=()
+    for existing_streamer in "${streams_array[@]}"; do
+        if [[ $existing_streamer != "$1" ]]; then
+            updated_streams+=("$existing_streamer")
+        fi
+    done
+    streams_array=("${updated_streams[@]}")
     echo "Saving new streamer list ..."
-    sed -i "s/streams=\".*\"/streams=\"$updated_streams\"/g" ~/.tsrconf
+    save_streams
 }
 
 while true; do
     clear
     options=("Enable" "Disable" "Start" "Stop" "Restart" "Status" "Create service" "Active recorder" "Delete recorder" "Quit")
     echo ""
-    echo "Known recorder: $streams"
+    echo "Known recorder: ${streams_array[*]}"
     echo ""
     select opt in "${options[@]}"; do
         case $opt in
