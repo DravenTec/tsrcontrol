@@ -2,7 +2,7 @@
 #
 # Twitch Stream Recorder - Control Script
 #
-# Version: 01.06.2023-2125
+# Version: 30.01.2026-2130
 #
 # Developed by: DravenTec
 #
