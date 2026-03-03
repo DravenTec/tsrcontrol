@@ -391,6 +391,7 @@ menu_create_service() {
 	Wants=network-online.target
 
 	[Service]
+	Environment=PYTHONUNBUFFERED=1
 	Type=simple
 	User=$user
 	Group=$user
