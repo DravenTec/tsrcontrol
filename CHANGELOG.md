@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased
+## 09.07.2026-0010
 
 ### Fixed
 - Recorder log output no longer appears hours late (or gets lost on
