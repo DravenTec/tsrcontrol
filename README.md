@@ -95,8 +95,13 @@ named `cron` will never touch `cron.service`).
 
 If units from an older version of this script (named `<streamer>.service`) are
 found on startup, the script offers to migrate them to the new naming scheme
-automatically. The enabled/running state of each recorder is preserved during
-migration.
+automatically. Units are recreated from the current template; the quality
+argument and the enabled/running state of each recorder are preserved.
+Existing `tsr-<streamer>` units created from older templates are likewise
+detected on startup and can be rewritten with the current template.
+
+Note: journal entries from before a migration stay under the old unit name —
+view them with `journalctl -u <streamer>` (without the `tsr-` prefix).
 
 ## Configuration
 

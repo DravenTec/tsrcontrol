@@ -2,7 +2,7 @@
 #
 # Twitch Stream Recorder - Control Script
 #
-# Version: 08.07.2026-1200
+# Version: 09.07.2026-0010
 # Developed by: DravenTec
 #
 # Manages tsr.py systemd services via whiptail TUI
@@ -14,7 +14,7 @@ set -euo pipefail
 # ─── Constants ────────────────────────────────────────────────────────────────
 
 readonly CONF_FILE="$HOME/.tsrconf"
-readonly SCRIPT_VERSION="08.07.2026-1200"
+readonly SCRIPT_VERSION="09.07.2026-0010"
 readonly TSR_SCRIPT="tsr.py"
 # Unit name prefix — keeps recorder units from colliding with system units
 # (e.g. a streamer named "cron" must never touch cron.service)
@@ -128,6 +128,50 @@ service_status_label() {
     else
         echo "STOPPED"
     fi
+}
+
+# ─── Unit template ────────────────────────────────────────────────────────────
+# Single source of truth for recorder unit files — used by create service,
+# legacy migration and unit repair so every recorder ends up on the same
+# template. Prints the unit file content to stdout.
+#
+# The quality argument is optional: units created by very old versions have no
+# "-q" in their ExecStart, and migration/repair must not invent one — tsr.py's
+# behaviour has to stay exactly as it was.
+
+render_unit() {
+    local streamer="$1" quality="${2:-}"
+    local q_arg=""
+    [[ -n "$quality" ]] && q_arg=" -q $quality"
+
+    cat <<-EOSVC
+	[Unit]
+	Description=$streamer Twitch Stream Recorder
+	After=network-online.target
+	Wants=network-online.target
+
+	[Service]
+	Environment=PYTHONUNBUFFERED=1
+	Type=simple
+	User=$user
+	Group=$user
+	WorkingDirectory=/home/$user
+	ExecStart=/usr/bin/python3 /home/$user/$TSR_SCRIPT -u $streamer$q_arg
+	SyslogIdentifier=$(unit_for "$streamer")
+	StandardOutput=journal
+	StandardError=journal
+	Restart=always
+	RestartSec=5
+
+	[Install]
+	WantedBy=multi-user.target
+	EOSVC
+}
+
+# Extracts the "-q <quality>" argument from an existing unit file's ExecStart.
+# Prints nothing if the unit was created without a quality argument.
+unit_quality_from_file() {
+    sed -n 's/^.*ExecStart=.* -q \([[:alnum:]_]\{1,\}\).*$/\1/p' "$1" | head -n 1
 }
 
 # ─── Backtitle ────────────────────────────────────────────────────────────────
@@ -401,28 +445,7 @@ menu_create_service() {
     local unit
     unit=$(unit_for "$streamer")
 
-    cat > "$(unit_file_for "$streamer")" <<-EOSVC
-	[Unit]
-	Description=$streamer Twitch Stream Recorder
-	After=network-online.target
-	Wants=network-online.target
-
-	[Service]
-	Environment=PYTHONUNBUFFERED=1
-	Type=simple
-	User=$user
-	Group=$user
-	WorkingDirectory=/home/$user
-	ExecStart=/usr/bin/python3 /home/$user/$TSR_SCRIPT -u $streamer -q $quality
-	SyslogIdentifier=$unit
-	StandardOutput=journal
-	StandardError=journal
-	Restart=always
-	RestartSec=5
-
-	[Install]
-	WantedBy=multi-user.target
-	EOSVC
+    render_unit "$streamer" "$quality" > "$(unit_file_for "$streamer")"
 
     streams_array+=("$streamer")
     save_streams
@@ -491,8 +514,9 @@ menu_delete_service() {
 }
 
 # ─── Legacy unit migration ────────────────────────────────────────────────────
-# Older versions created units named <streamer>.service. Rename them to
-# tsr-<streamer>.service, preserving each recorder's enabled/running state.
+# Older versions created units named <streamer>.service. Recreate them as
+# tsr-<streamer>.service from the current template (preserving the quality
+# argument and each recorder's enabled/running state), then remove the old unit.
 
 migrate_legacy_units() {
     local legacy=() s
@@ -507,13 +531,15 @@ migrate_legacy_units() {
     whiptail \
         --backtitle "$WT_BACKTITLE" \
         --title "TSR Control – Migration" \
-        --yesno "$(printf 'Found %d recorder unit(s) using the old naming scheme:\n\n%s\n\nRename them to %s<name>.service now?\nEnabled/running state is preserved.\n\nIf you skip this, these recorders will show as NO UNIT.' \
+        --yesno "$(printf 'Found %d recorder unit(s) using the old naming scheme:\n\n%s\n\nMigrate them to %s<name>.service now?\nUnits are recreated from the current template; the quality\nsetting and enabled/running state are preserved.\n\nIf you skip this, these recorders will show as NO UNIT.' \
             "${#legacy[@]}" "${legacy[*]}" "$SERVICE_PREFIX")" \
         "$WT_HEIGHT" "$WT_WIDTH" || return 0
 
-    local results="" unit was_active was_enabled out
+    local results="" unit old_file quality was_active was_enabled out
     for s in "${legacy[@]}"; do
         unit=$(unit_for "$s")
+        old_file="/etc/systemd/system/${s}.service"
+        quality=$(unit_quality_from_file "$old_file")
         was_active=false
         was_enabled=false
         systemctl is-active  --quiet "$s" 2>/dev/null && was_active=true
@@ -521,7 +547,8 @@ migrate_legacy_units() {
 
         systemctl stop    "$s" 2>/dev/null || true
         systemctl disable "$s" 2>/dev/null || true
-        mv "/etc/systemd/system/${s}.service" "$(unit_file_for "$s")"
+        render_unit "$s" "$quality" > "$(unit_file_for "$s")"
+        rm "$old_file"
         systemctl daemon-reload
 
         results+="OK  $s -> $unit\n"
@@ -537,6 +564,59 @@ migrate_legacy_units() {
 
     wt_size
     whiptail --backtitle "$WT_BACKTITLE" --title "Migration Complete" \
+        --scrolltext \
+        --msgbox "$(printf '%b\nNote: journal entries from before the migration stay under\nthe old unit name (journalctl -u <name>, without %s).' \
+            "$results" "$SERVICE_PREFIX")" \
+        "$WT_HEIGHT" "$WT_WIDTH"
+}
+
+# ─── Unit repair ──────────────────────────────────────────────────────────────
+# Lifts tsr-<streamer> units created from older templates onto the current one
+# (adds PYTHONUNBUFFERED=1 so log output appears live instead of buffered,
+# absolute tsr.py path, journal output). The quality argument of the existing
+# ExecStart is preserved. Comparing rendered vs. existing content makes this
+# idempotent — up-to-date units are never touched.
+
+repair_outdated_units() {
+    local outdated=() s file
+    for s in "${streams_array[@]}"; do
+        file=$(unit_file_for "$s")
+        [[ -f "$file" ]] || continue
+        if [[ "$(render_unit "$s" "$(unit_quality_from_file "$file")")" != "$(cat "$file")" ]]; then
+            outdated+=("$s")
+        fi
+    done
+    [[ ${#outdated[@]} -eq 0 ]] && return 0
+
+    wt_size; build_backtitle
+    whiptail \
+        --backtitle "$WT_BACKTITLE" \
+        --title "TSR Control – Unit Update" \
+        --yesno "$(printf '%d recorder unit(s) were created from an older template:\n\n%s\n\nRewrite them with the current template now?\nThe quality setting is kept; running recorders are restarted.' \
+            "${#outdated[@]}" "${outdated[*]}")" \
+        "$WT_HEIGHT" "$WT_WIDTH" || return 0
+
+    local results="" quality out
+    local restart_list=()
+    for s in "${outdated[@]}"; do
+        file=$(unit_file_for "$s")
+        quality=$(unit_quality_from_file "$file")
+        service_is_active "$s" && restart_list+=("$s")
+        render_unit "$s" "$quality" > "$file"
+        results+="OK  $(unit_for "$s") rewritten\n"
+    done
+    systemctl daemon-reload
+
+    for s in "${restart_list[@]}"; do
+        if out=$(systemctl restart "$(unit_for "$s")" 2>&1); then
+            results+="OK  $(unit_for "$s") restarted\n"
+        else
+            results+="!!  $(unit_for "$s") restart failed: ${out%%$'\n'*}\n"
+        fi
+    done
+
+    wt_size
+    whiptail --backtitle "$WT_BACKTITLE" --title "Unit Update Complete" \
         --scrolltext \
         --msgbox "$(printf '%b' "$results")" \
         "$WT_HEIGHT" "$WT_WIDTH"
@@ -572,6 +652,7 @@ main() {
     read -r -a streams_array <<< "$streams" || true
 
     migrate_legacy_units
+    repair_outdated_units
 
     while true; do
         wt_size
