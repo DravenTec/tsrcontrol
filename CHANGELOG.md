@@ -4,7 +4,19 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+### Fixed
+- Recorder log output no longer appears hours late (or gets lost on
+  restarts): units created by old versions lacked
+  `Environment=PYTHONUNBUFFERED=1`, so Python buffered the periodic check
+  messages instead of writing them to the journal every 15 seconds.
+
 ### Added
+- Unit repair pass on startup: existing `tsr-<streamer>` units created from
+  older templates are rewritten with the current template (after
+  confirmation). The quality argument is preserved and running recorders are
+  restarted. Up-to-date units are never touched.
+- The unit template is now a single function (`render_unit`) shared by
+  create service, migration and repair.
 - Installation as a system command: `tsrcontrol.sh` was renamed to
   `tsrcontrol` and the README documents installing it root-only via
   `install -m 0700 -o root -g root tsrcontrol /usr/local/sbin/tsrcontrol`
@@ -12,8 +24,9 @@ All notable changes to this project will be documented in this file.
 - Recorder units are now created as `tsr-<streamer>.service` to prevent
   collisions with existing system units (e.g. a streamer named `cron`).
 - Automatic migration offer on startup for units created by older versions
-  (`<streamer>.service` → `tsr-<streamer>.service`), preserving each
-  recorder's enabled/running state.
+  (`<streamer>.service` → `tsr-<streamer>.service`). Units are recreated
+  from the current template; the quality argument and each recorder's
+  enabled/running state are preserved.
 - Root privilege check on startup with a clear error message.
 - Failed `systemctl` calls now show the actual error message in the result
   dialogs instead of a bare "failed".
