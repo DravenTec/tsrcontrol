@@ -10,7 +10,7 @@ stop, restart, enable and disable recorders, and to inspect their status and log
 
 Two variants are included:
 
-- **`tsrcontrol.sh`** – the current version with a whiptail-based TUI (recommended)
+- **`tsrcontrol`** – the current version with a whiptail-based TUI (recommended)
 - **`tsrcontrol_classic.sh`** – the older, plain text-based menu version
 
 ## Prerequisites
@@ -25,14 +25,47 @@ Two variants are included:
 
 The classic variant only requires Bash and `systemctl`.
 
-## Getting Started
+## Installation
 
-1. Clone the repository: `git clone https://github.com/DravenTec/tsrcontrol`
-2. Navigate to the script directory: `cd tsrcontrol`
-3. Make the script executable: `chmod +x tsrcontrol.sh`
-4. Run the script as root: `sudo ./tsrcontrol.sh`
+Clone the repository and install `tsrcontrol` as a root-only command:
+
+```bash
+git clone https://github.com/DravenTec/tsrcontrol
+cd tsrcontrol
+sudo install -m 0700 -o root -g root tsrcontrol /usr/local/sbin/tsrcontrol
+```
+
+This installs the script to `/usr/local/sbin`, the conventional location for
+administrative tools: it is only on root's PATH, and mode `0700` means only
+root can read or execute it. The script additionally refuses to run without
+root privileges on its own.
+
+Then simply run:
+
+```bash
+sudo tsrcontrol
+```
 
 On the first run you will be asked for the non-root user that runs `tsr.py`.
+
+**Update:** pull the latest version and run the same `install` command again:
+
+```bash
+git pull && sudo install -m 0700 -o root -g root tsrcontrol /usr/local/sbin/tsrcontrol
+```
+
+**Uninstall:**
+
+```bash
+sudo rm /usr/local/sbin/tsrcontrol
+```
+
+The configuration file (`~/.tsrconf`) and any recorder services you created
+are left untouched by an uninstall — remove recorders via the *Delete service*
+menu beforehand if you want a clean system.
+
+Running the script directly from the repository (`sudo ./tsrcontrol`) works
+as well, without installation.
 
 ## Usage
 

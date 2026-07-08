@@ -5,6 +5,10 @@ All notable changes to this project will be documented in this file.
 ## Unreleased
 
 ### Added
+- Installation as a system command: `tsrcontrol.sh` was renamed to
+  `tsrcontrol` and the README documents installing it root-only via
+  `install -m 0700 -o root -g root tsrcontrol /usr/local/sbin/tsrcontrol`
+  (including update and uninstall instructions).
 - Recorder units are now created as `tsr-<streamer>.service` to prevent
   collisions with existing system units (e.g. a streamer named `cron`).
 - Automatic migration offer on startup for units created by older versions
