@@ -2,7 +2,7 @@
 #
 # Twitch Stream Recorder - Control Script
 #
-# Version: 04.03.2026-0030
+# Version: 08.07.2026-1200
 # Developed by: DravenTec
 #
 # Manages tsr.py systemd services via whiptail TUI
@@ -14,8 +14,11 @@ set -euo pipefail
 # ─── Constants ────────────────────────────────────────────────────────────────
 
 readonly CONF_FILE="$HOME/.tsrconf"
-readonly SCRIPT_VERSION="04.03.2026-0030"
+readonly SCRIPT_VERSION="08.07.2026-1200"
 readonly TSR_SCRIPT="tsr.py"
+# Unit name prefix — keeps recorder units from colliding with system units
+# (e.g. a streamer named "cron" must never touch cron.service)
+readonly SERVICE_PREFIX="tsr-"
 readonly WT_MIN_HEIGHT=20
 readonly WT_MIN_WIDTH=60
 
@@ -99,13 +102,22 @@ save_streams() {
 }
 
 # ─── Service helpers ──────────────────────────────────────────────────────────
+# All helpers take the plain streamer name; the unit name is derived here.
+
+unit_for() {
+    printf '%s%s' "$SERVICE_PREFIX" "$1"
+}
+
+unit_file_for() {
+    printf '/etc/systemd/system/%s.service' "$(unit_for "$1")"
+}
 
 service_is_active() {
-    systemctl is-active --quiet "$1" 2>/dev/null || return 1
+    systemctl is-active --quiet "$(unit_for "$1")" 2>/dev/null || return 1
 }
 
 service_exists() {
-    [[ -f "/etc/systemd/system/$1.service" ]]
+    [[ -f "$(unit_file_for "$1")" ]]
 }
 
 service_status_label() {
@@ -227,11 +239,13 @@ run_action() {
         targets=("$target")
     fi
 
+    local out
     for s in "${targets[@]}"; do
-        if systemctl "$subcmd" "$s" 2>/dev/null; then
+        if out=$(systemctl "$subcmd" "$(unit_for "$s")" 2>&1); then
             results+="OK  $s\n"
         else
-            results+="!!  $s (failed)\n"
+            # Show the first line of the systemctl error so failures are diagnosable
+            results+="!!  $s failed: ${out%%$'\n'*}\n"
         fi
     done
 
@@ -277,7 +291,7 @@ menu_status() {
     [[ "$choice" == "__BACK__" ]] && return 0
 
     clear
-    systemctl status "$choice" --no-pager -l 2>&1 | \
+    systemctl status "$(unit_for "$choice")" --no-pager -l 2>&1 | \
         less -RS --prompt="  Status: $choice  |  q=quit  arrows=scroll"
 }
 
@@ -306,7 +320,7 @@ menu_logs() {
     [[ -z "$line_count" || ! "$line_count" =~ ^[0-9]+$ ]] && line_count=100
 
     clear
-    journalctl -u "$choice" -n "$line_count" --no-pager 2>&1 | \
+    journalctl -u "$(unit_for "$choice")" -n "$line_count" --no-pager 2>&1 | \
         less -RS +G --prompt="  Logs: $choice  (${line_count} lines)  |  q=quit  PgUp/PgDn=scroll"
 }
 
@@ -384,7 +398,10 @@ menu_create_service() {
         --yesno "Create recorder for '$streamer' with quality '$quality'?" \
         10 55 || return 0
 
-    cat > "/etc/systemd/system/${streamer}.service" <<-EOSVC
+    local unit
+    unit=$(unit_for "$streamer")
+
+    cat > "$(unit_file_for "$streamer")" <<-EOSVC
 	[Unit]
 	Description=$streamer Twitch Stream Recorder
 	After=network-online.target
@@ -396,8 +413,8 @@ menu_create_service() {
 	User=$user
 	Group=$user
 	WorkingDirectory=/home/$user
-	ExecStart=/usr/bin/python3 $TSR_SCRIPT -u $streamer -q $quality
-	SyslogIdentifier=$streamer
+	ExecStart=/usr/bin/python3 /home/$user/$TSR_SCRIPT -u $streamer -q $quality
+	SyslogIdentifier=$unit
 	StandardOutput=journal
 	StandardError=journal
 	Restart=always
@@ -411,11 +428,11 @@ menu_create_service() {
     save_streams
     systemctl daemon-reload
 
-    local result=""
-    if systemctl enable "$streamer" 2>/dev/null; then result+="OK  Enabled\n"
-    else                                               result+="!!  Enable failed\n"; fi
-    if systemctl start  "$streamer" 2>/dev/null; then result+="OK  Started\n"
-    else                                               result+="!!  Start failed\n";  fi
+    local result="" out
+    if out=$(systemctl enable "$unit" 2>&1); then result+="OK  Enabled\n"
+    else result+="!!  Enable failed: ${out%%$'\n'*}\n"; fi
+    if out=$(systemctl start "$unit" 2>&1); then result+="OK  Started\n"
+    else result+="!!  Start failed: ${out%%$'\n'*}\n"; fi
 
     wt_size
     whiptail --backtitle "$WT_BACKTITLE" --title "Service Created" \
@@ -441,12 +458,18 @@ menu_delete_service() {
         --yesno "Permanently delete recorder '$choice'?\nThis stops, disables and removes the service file." \
         10 60 || return 0
 
-    local result=""
-    systemctl stop    "$choice" 2>/dev/null && result+="OK  Stopped\n"  || result+="!!  Stop failed\n"
-    systemctl disable "$choice" 2>/dev/null && result+="OK  Disabled\n" || result+="!!  Disable failed\n"
+    local unit unit_file
+    unit=$(unit_for "$choice")
+    unit_file=$(unit_file_for "$choice")
 
-    if [[ -f "/etc/systemd/system/${choice}.service" ]]; then
-        rm "/etc/systemd/system/${choice}.service"
+    local result="" out
+    if out=$(systemctl stop "$unit" 2>&1); then result+="OK  Stopped\n"
+    else result+="!!  Stop failed: ${out%%$'\n'*}\n"; fi
+    if out=$(systemctl disable "$unit" 2>&1); then result+="OK  Disabled\n"
+    else result+="!!  Disable failed: ${out%%$'\n'*}\n"; fi
+
+    if [[ -f "$unit_file" ]]; then
+        rm "$unit_file"
         result+="OK  Service file removed\n"
     else
         result+="!!  Service file not found\n"
@@ -467,6 +490,58 @@ menu_delete_service() {
         12 "$WT_WIDTH"
 }
 
+# ─── Legacy unit migration ────────────────────────────────────────────────────
+# Older versions created units named <streamer>.service. Rename them to
+# tsr-<streamer>.service, preserving each recorder's enabled/running state.
+
+migrate_legacy_units() {
+    local legacy=() s
+    for s in "${streams_array[@]}"; do
+        if [[ -f "/etc/systemd/system/${s}.service" && ! -f "$(unit_file_for "$s")" ]]; then
+            legacy+=("$s")
+        fi
+    done
+    [[ ${#legacy[@]} -eq 0 ]] && return 0
+
+    wt_size; build_backtitle
+    whiptail \
+        --backtitle "$WT_BACKTITLE" \
+        --title "TSR Control – Migration" \
+        --yesno "$(printf 'Found %d recorder unit(s) using the old naming scheme:\n\n%s\n\nRename them to %s<name>.service now?\nEnabled/running state is preserved.\n\nIf you skip this, these recorders will show as NO UNIT.' \
+            "${#legacy[@]}" "${legacy[*]}" "$SERVICE_PREFIX")" \
+        "$WT_HEIGHT" "$WT_WIDTH" || return 0
+
+    local results="" unit was_active was_enabled out
+    for s in "${legacy[@]}"; do
+        unit=$(unit_for "$s")
+        was_active=false
+        was_enabled=false
+        systemctl is-active  --quiet "$s" 2>/dev/null && was_active=true
+        systemctl is-enabled --quiet "$s" 2>/dev/null && was_enabled=true
+
+        systemctl stop    "$s" 2>/dev/null || true
+        systemctl disable "$s" 2>/dev/null || true
+        mv "/etc/systemd/system/${s}.service" "$(unit_file_for "$s")"
+        systemctl daemon-reload
+
+        results+="OK  $s -> $unit\n"
+        if [[ "$was_enabled" == "true" ]]; then
+            if out=$(systemctl enable "$unit" 2>&1); then results+="    OK  re-enabled\n"
+            else results+="    !!  enable failed: ${out%%$'\n'*}\n"; fi
+        fi
+        if [[ "$was_active" == "true" ]]; then
+            if out=$(systemctl start "$unit" 2>&1); then results+="    OK  restarted\n"
+            else results+="    !!  start failed: ${out%%$'\n'*}\n"; fi
+        fi
+    done
+
+    wt_size
+    whiptail --backtitle "$WT_BACKTITLE" --title "Migration Complete" \
+        --scrolltext \
+        --msgbox "$(printf '%b' "$results")" \
+        "$WT_HEIGHT" "$WT_WIDTH"
+}
+
 # ─── Dependency check ─────────────────────────────────────────────────────────
 
 check_dependencies() {
@@ -484,12 +559,19 @@ check_dependencies() {
 # ─── Main ─────────────────────────────────────────────────────────────────────
 
 main() {
+    if [[ $EUID -ne 0 ]]; then
+        log_error "This script must be run as root (systemctl write access required)."
+        exit 1
+    fi
+
     check_dependencies
     load_config
 
     # 'read' returns exit 1 on empty input — || true prevents set -e from
     # killing the script when streams is empty (no recorders configured yet)
     read -r -a streams_array <<< "$streams" || true
+
+    migrate_legacy_units
 
     while true; do
         wt_size

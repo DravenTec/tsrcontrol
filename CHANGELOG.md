@@ -3,6 +3,40 @@
 All notable changes to this project will be documented in this file.
 
 ## Unreleased
+
+### Added
+- Installation as a system command: `tsrcontrol.sh` was renamed to
+  `tsrcontrol` and the README documents installing it root-only via
+  `install -m 0700 -o root -g root tsrcontrol /usr/local/sbin/tsrcontrol`
+  (including update and uninstall instructions).
+- Recorder units are now created as `tsr-<streamer>.service` to prevent
+  collisions with existing system units (e.g. a streamer named `cron`).
+- Automatic migration offer on startup for units created by older versions
+  (`<streamer>.service` → `tsr-<streamer>.service`), preserving each
+  recorder's enabled/running state.
+- Root privilege check on startup with a clear error message.
+- Failed `systemctl` calls now show the actual error message in the result
+  dialogs instead of a bare "failed".
+
+### Changed
+- `ExecStart` now uses the absolute path to `tsr.py`
+  (`/home/<user>/tsr.py`) instead of relying on the working directory.
+- `SyslogIdentifier` follows the new unit name (`tsr-<streamer>`).
+- README rewritten to describe the whiptail TUI, its menu options, the new
+  service naming scheme and the classic script variant.
+
+## 04.03.2026
+
+### Added
+- Whiptail-based TUI replacing the plain text menu; the previous script is
+  kept as `tsrcontrol_classic.sh`.
+- Restart action, journal log viewer with configurable line count, and a
+  recorder status overview in the main menu.
+- Dependency check on startup and dialogs that adapt to the terminal size.
+- Atomic config writes (temp file + rename) to avoid a corrupt `~/.tsrconf`.
+
+## Older releases
+
 ### Added
 - Safer stream list persistence and array-based handling for recorder menus.
 - Streamer input validation and duplicate detection to prevent conflicting services.
