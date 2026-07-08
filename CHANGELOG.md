@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased
+## 09.07.2026-0010
 
 ### Fixed
 - Recorder log output no longer appears hours late (or gets lost on
@@ -11,6 +11,8 @@ All notable changes to this project will be documented in this file.
   messages instead of writing them to the journal every 15 seconds.
 
 ### Added
+- GitHub Actions workflow that automatically attaches the `tsrcontrol`
+  script from the tagged commit to every published release.
 - Unit repair pass on startup: existing `tsr-<streamer>` units created from
   older templates are rewritten with the current template (after
   confirmation). The quality argument is preserved and running recorders are
